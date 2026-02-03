@@ -49,25 +49,51 @@ local function render_main_content()
   local lines = {}
   local task_map = {} -- Map line number to task object
 
+  local stats = vim.api.nvim_win_get_config(state.main_win)
+  local win_width = stats.width
+
+  -- Column widths
+  local col_st = 5
+  local col_id = 5
+  local col_desc = win_width - col_st - col_id - 4 -- accounting for separators │
+
+  local top_border = "┌" .. string.rep("─", col_st) .. "┬" .. string.rep("─", col_id) .. "┬" .. string.rep("─", col_desc) .. "┐"
+  local header = "│ ST  │ ID  │ " .. string.format("%-" .. (col_desc - 1) .. "s", "Task Description") .. "│"
+  local separator = "├" .. string.rep("─", col_st) .. "┼" .. string.rep("─", col_id) .. "┼" .. string.rep("─", col_desc) .. "┤"
+  local bottom_border = "└" .. string.rep("─", col_st) .. "┴" .. string.rep("─", col_id) .. "┴" .. string.rep("─", col_desc) .. "┘"
+
   local dates = {}
   for date in pairs(task_data.tasks) do
     table.insert(dates, date)
   end
   table.sort(dates, function(a, b) return a > b end) -- Newest first
 
+  if #dates == 0 then
+    vim.api.nvim_buf_set_lines(state.main_buf, 0, -1, false, { " No tasks found. Press 'i' to add one!" })
+    return
+  end
+
   for _, date in ipairs(dates) do
     table.insert(lines, "─── " .. date .. " ───")
+    table.insert(lines, top_border)
+    table.insert(lines, header)
+    table.insert(lines, separator)
+    
     for _, task in ipairs(task_data.tasks[date]) do
       local checkbox = task.status == "completed" and "[x]" or "[ ]"
-      local line_text = string.format(" %s %3d: %s", checkbox, task.id, task.text)
+      
+      -- Format description with truncation
+      local desc = task.text
+      if #desc > (col_desc - 2) then
+        desc = desc:sub(1, col_desc - 5) .. "..."
+      end
+      
+      local line_text = string.format("│ %-3s │ %3d │ %-" .. (col_desc - 1) .. "s│", checkbox, task.id, desc)
       table.insert(lines, line_text)
       task_map[#lines] = task
     end
+    table.insert(lines, bottom_border)
     table.insert(lines, "")
-  end
-
-  if #lines == 0 then
-    lines = { " No tasks found. Add one below!" }
   end
 
   vim.api.nvim_buf_set_lines(state.main_buf, 0, -1, false, lines)
