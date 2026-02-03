@@ -99,4 +99,27 @@ function M.add_comment(task_id, comment_text)
   end
 end
 
+-- Function to toggle task status
+function M.toggle_status(task_id)
+  local data = M.load_tasks()
+  local found = false
+
+  for _, day_tasks in pairs(data.tasks) do
+    for _, task in ipairs(day_tasks) do
+      if task.id == task_id then
+        task.status = (task.status == "completed") and "pending" or "completed"
+        found = true
+        break
+      end
+    end
+    if found then break end
+  end
+
+  if found then
+    save_to_disk(data)
+  else
+    vim.notify("backlog.nvim: Task ID " .. task_id .. " not found", vim.log.levels.WARN)
+  end
+end
+
 return M

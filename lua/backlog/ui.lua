@@ -198,6 +198,19 @@ function M.open()
   local opts = { noremap = true, silent = true, buffer = state.main_buf }
   vim.keymap.set("n", "q", M.close, opts)
   vim.keymap.set("n", "<Esc>", M.close, opts)
+  vim.keymap.set("n", "R", function()
+    render_main_content()
+    vim.notify("backlog.nvim: UI reloaded", vim.log.levels.INFO)
+  end, opts)
+  vim.keymap.set("n", "x", function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local line = cursor[1]
+    local task = state.task_map and state.task_map[line]
+    if task then
+      data.toggle_status(task.id)
+      render_main_content()
+    end
+  end, opts)
   vim.keymap.set("n", "i", function()
     vim.api.nvim_set_current_win(state.input_win)
     vim.api.nvim_feedkeys("A", "n", false) -- Enter insert mode

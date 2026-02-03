@@ -58,7 +58,16 @@ Run the following command to open the backlog interface:
 3. Press `<Enter>` to save.
 4. You can see the comments in the **Preview Pane** as you move your cursor over the tasks in the main window.
 
+### Marking a Task as Complete
+1. Hover over a task in the **Main Window**.
+2. Press `x`. The checkbox will toggle between `[ ]` and `[x]`.
+
+### Reloading the UI
+- Press `R` in the **Main Window** to force a refresh of the UI and recalculate table layouts.
+
 ### Navigation
 - `j` / `k`: Move selection (Preview updates automatically).
 - `i`: Focus Input Bar.
+- `x`: Toggle task completion.
+- `R`: Reload UI.
 - `q` or `<Esc>`: Close the UI.
