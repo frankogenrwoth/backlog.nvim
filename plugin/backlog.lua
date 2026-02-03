@@ -3,8 +3,8 @@
 -- This file is automatically loaded by Neovim on startup if the plugin is installed.
 -- It exposes the user-facing commands and initializes the plugin if needed.
 
-if vim.fn.has("nvim-0.7.0") == 0 then
-  vim.api.nvim_err_writeln("backlog.nvim requires Neovim 0.7.0 or later")
+if vim.fn.has("nvim-0.9.0") == 0 then
+  vim.api.nvim_err_writeln("backlog.nvim requires Neovim 0.9.0 or later")
   return
 end
 
