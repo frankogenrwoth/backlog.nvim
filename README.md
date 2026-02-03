@@ -46,3 +46,19 @@ Run the following command to open the backlog interface:
 ```vim
 :Backlog
 ```
+
+### Adding a Task
+1. Inside the Backlog UI, press `i` to focus the **Input Bar**.
+2. Type your task description.
+3. Press `<Enter>` to save. The task will be added to today's group.
+
+### Commenting on a Task
+1. Press `i` to focus the **Input Bar**.
+2. Type `c [ID] [Message]`. For example: `c 1 This task is almost done`.
+3. Press `<Enter>` to save.
+4. You can see the comments in the **Preview Pane** as you move your cursor over the tasks in the main window.
+
+### Navigation
+- `j` / `k`: Move selection (Preview updates automatically).
+- `i`: Focus Input Bar.
+- `q` or `<Esc>`: Close the UI.

@@ -4,6 +4,7 @@
 -- It includes the main task table, the side preview, and the input bar.
 
 local M = {}
+local data = require("backlog.data")
 
 -- State to keep track of windows and buffers
 local state = {
@@ -13,6 +14,7 @@ local state = {
   preview_buf = nil,
   input_win = nil,
   input_buf = nil,
+  selected_task_id = nil,
 }
 
 -- Function to close the backlog UI
@@ -41,6 +43,64 @@ local function create_buffer()
   return buf
 end
 
+-- Render tasks in the main buffer
+local function render_main_content()
+  local task_data = data.load_tasks()
+  local lines = {}
+  local task_map = {} -- Map line number to task object
+
+  local dates = {}
+  for date in pairs(task_data.tasks) do
+    table.insert(dates, date)
+  end
+  table.sort(dates, function(a, b) return a > b end) -- Newest first
+
+  for _, date in ipairs(dates) do
+    table.insert(lines, "─── " .. date .. " ───")
+    for _, task in ipairs(task_data.tasks[date]) do
+      local checkbox = task.status == "completed" and "[x]" or "[ ]"
+      local line_text = string.format(" %s %3d: %s", checkbox, task.id, task.text)
+      table.insert(lines, line_text)
+      task_map[#lines] = task
+    end
+    table.insert(lines, "")
+  end
+
+  if #lines == 0 then
+    lines = { " No tasks found. Add one below!" }
+  end
+
+  vim.api.nvim_buf_set_lines(state.main_buf, 0, -1, false, lines)
+  state.task_map = task_map
+end
+
+-- Function to handle task addition from input bar
+local function handle_input_submit()
+  local lines = vim.api.nvim_buf_get_lines(state.input_buf, 0, -1, false)
+  local input_text = table.concat(lines, " "):gsub("^%s*(.-)%s*$", "%1")
+
+  if input_text == "" or input_text == "Type here..." then
+    return
+  end
+
+  -- Check if it's a comment command: "c [id] [text]"
+  local task_id, comment = input_text:match("^c%s+(%d+)%s+(.+)$")
+  if task_id and comment then
+    data.add_comment(tonumber(task_id), comment)
+  else
+    data.save_task(input_text)
+  end
+
+  -- Clear input and refresh
+  vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "" })
+  render_main_content()
+  
+  -- Move focus back to main window if we were in input
+  if vim.api.nvim_get_current_win() == state.input_win then
+    vim.api.nvim_set_current_win(state.main_win)
+  end
+end
+
 -- Function to open the backlog UI
 function M.open()
   if state.main_win and vim.api.nvim_win_is_valid(state.main_win) then
@@ -60,8 +120,8 @@ function M.open()
 
   -- Calculate individual window sizes
   local main_width = math.floor(ui_width * 0.6)
-  local preview_width = ui_width - main_width - 2 -- account for borders
-  local main_height = ui_height - 3 -- space for input at bottom
+  local preview_width = ui_width - main_width - 2
+  local main_height = ui_height - 3
   local input_height = 1
 
   -- Create buffers
@@ -104,26 +164,65 @@ function M.open()
     col = ui_col,
     style = "minimal",
     border = "rounded",
-    title = " Input / Comment ",
+    title = " Input (Type to add, 'c ID msg' to comment) ",
     title_pos = "left",
   })
 
-  -- Set keybindings for closing
+  -- Keybindings
   local opts = { noremap = true, silent = true, buffer = state.main_buf }
   vim.keymap.set("n", "q", M.close, opts)
   vim.keymap.set("n", "<Esc>", M.close, opts)
+  vim.keymap.set("n", "i", function()
+    vim.api.nvim_set_current_win(state.input_win)
+    vim.api.nvim_feedkeys("A", "n", false) -- Enter insert mode
+  end, opts)
 
-  -- Initial content (placeholder)
-  vim.api.nvim_buf_set_lines(state.main_buf, 0, -1, false, { " [1] Task A", " [2] Task B", " [3] Task C" })
-  vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "Detail for task A...", "Status: Pending" })
-  vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "Type here..." })
+  -- Input window submit on Enter
+  vim.keymap.set("i", "<CR>", function()
+    handle_input_submit()
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+  end, { buffer = state.input_buf })
+
+  -- Cursor move updating preview
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    buffer = state.main_buf,
+    callback = function()
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      local line = cursor[1]
+      local task = state.task_map and state.task_map[line]
+      if task then
+        M.update_preview(task)
+      end
+    end,
+  })
+
+  render_main_content()
 end
 
 -- Function to update the preview based on selected task
-function M.update_preview(task_id)
-  if state.preview_buf and vim.api.nvim_buf_is_valid(state.preview_buf) then
-    vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "Updating preview for task: " .. task_id })
+function M.update_preview(task)
+  if not state.preview_buf or not vim.api.nvim_buf_is_valid(state.preview_buf) then return end
+
+  local lines = {
+    "Task ID: " .. task.id,
+    "Status: " .. task.status,
+    "Created: " .. task.date,
+    "",
+    "Description:",
+    "  " .. task.text,
+    "",
+    "Comments:",
+  }
+
+  if #task.comments == 0 then
+    table.insert(lines, "  (No comments yet)")
+  else
+    for _, comment in ipairs(task.comments) do
+      table.insert(lines, string.format("  [%s] %s", comment.time:sub(1, 16), comment.text))
+    end
   end
+
+  vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, lines)
 end
 
 return M
